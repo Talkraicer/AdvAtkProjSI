@@ -1,5 +1,5 @@
 adversarial-robustness-toolbox==1.2.0
-torchaudio==0.4.0
+torchaudio==0.8.0
 numba==0.43.0
 llvmlite==0.32.1
 librosa==0.7.2

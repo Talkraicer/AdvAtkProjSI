@@ -1,4 +1,5 @@
 import argparse
+import time
 from argparse import ArgumentParser
 
 import numpy as np
@@ -348,7 +349,7 @@ def main(args):
 def parse_args():
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-m", "--model_ckpt", required=True, help="Checkpoint of the pretrained model.")
+    parser.add_argument("-m", "--model_ckpt", required=True,default="model/eps0.5" , help="Checkpoint of the pretrained model.")
     parser.add_argument("-o", "--output_dir", type=Path, default=None, required=True, help="Outputs/results will be saved here")
     parser.add_argument("-a", "--attack", default="FastGradientMethod", help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
     parser.add_argument("-e", "--epsilon", type=float, default=None, help="Perturbation value")

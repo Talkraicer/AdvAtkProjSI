@@ -150,8 +150,8 @@ def main(args):
 
         # Checkpointing
         if batch_idx % args.save_every == 0:
-            torch.save(model, ckpt + ".tmp")
-            torch.save(optimizer, ckpt + ".optimizer.tmp")
+            torch.save(model, ckpt + f"_{batch_idx}.tmp")
+            torch.save(optimizer, ckpt + f"_{batch_idx}.optimizer.tmp")
             print()
 
         # Termination
@@ -180,16 +180,16 @@ def parse_args():
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "-m", "--model_ckpt", type=str, default=None, help="Model checkpoint")
+        "-m", "--model_ckpt", type=str, default="eps0.5", help="Model checkpoint")
     parser.add_argument(
-        "-g", "--log", type=str, default="train.log", help="Experiment log")
+        "-g", "--log", type=str, default="train2.log", help="Experiment log")
     parser.add_argument(
         "-mt", "--model_type", type=str, default='cnn', help="Model type: cnn or tdnn")
     parser.add_argument(
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")
     parser.add_argument(
-        "-n", "--n_iters", type=int, default=500000,
+        "-n", "--n_iters", type=int, default=2000,
         help="Number of iterations for training"
     )
     parser.add_argument(
@@ -197,10 +197,10 @@ def parse_args():
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
-        "-s", "--save_every", type=int, default=10000, help="Save after this number of gradient updates"
+        "-s", "--save_every", type=int, default=500, help="Save after this number of gradient updates"
     )
     parser.add_argument(
-        "-e", "--epsilon", type=float, default=0,
+        "-e", "--epsilon", type=float, default=0.5,
         help="Noise magnitude in data augmentation; set it to 0 to disable augmentation")
     parser.add_argument(
         "-w", "--alr_weight", type=float, default=0,

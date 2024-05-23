@@ -23,19 +23,19 @@ class LibriSpeech4SpeakerRecognition(LIBRISPEECH):
     def __init__(
         self, root, project_fs, subset, wav_length=None, url=URL, 
         folder_in_archive=FOLDER_IN_ARCHIVE, download=False,
-        train_speaker_ratio=1, train_utterance_ratio=0.9,
+        train_speaker_ratio=1, train_utterance_ratio=0.8, val_utter_ratio=0.1,
         return_file_name=False
     ):
         """
         subset: "train", "test", "outside"
         """
         super().__init__(root, url=url, folder_in_archive=folder_in_archive, download=download)
-        self._split(subset, train_speaker_ratio, train_utterance_ratio)
+        self._split(subset, train_speaker_ratio, train_utterance_ratio, val_utter_ratio)
         self.project_fs = project_fs
         self.wav_length = wav_length
         self.return_file_name = return_file_name
 
-    def _split(self, subset, train_speaker_ratio, train_utterance_ratio):
+    def _split(self, subset, train_speaker_ratio, train_utterance_ratio, val_utter_ratio):
         """ Splits into training and testing sets """
         def _parse(name_string):
             speaker_id, chapter_id, utterance_id = name_string.split("-")
@@ -70,10 +70,13 @@ class LibriSpeech4SpeakerRecognition(LIBRISPEECH):
             num_train_utterance = int(len(utt_per_speaker[spk]) * train_utterance_ratio)
             utt_per_speaker[spk] = {
                 "train": utt_per_speaker[spk][:num_train_utterance],
-                "test": utt_per_speaker[spk][num_train_utterance:],
+                "val": utt_per_speaker[spk][num_train_utterance:num_train_utterance + int(len(utt_per_speaker[spk])
+                                                                                          * val_utter_ratio)],
+                "test": utt_per_speaker[spk][num_train_utterance + int(len(utt_per_speaker[spk]) * val_utter_ratio)],
             }
         
         trn_walker = []
+        val_walker = []
         test_walker = []            
         outsiders = []
         for filename in self._walker:
@@ -81,6 +84,8 @@ class LibriSpeech4SpeakerRecognition(LIBRISPEECH):
             if speaker_id in speakers["train"]:
                 if utterance_id in utt_per_speaker[speaker_id]["train"]:
                     trn_walker.append(filename)
+                elif utterance_id in utt_per_speaker[speaker_id]["val"]:
+                    val_walker.append(filename)
                 else:
                     test_walker.append(filename)
             else:
@@ -90,6 +95,8 @@ class LibriSpeech4SpeakerRecognition(LIBRISPEECH):
             self._walker = trn_walker
         elif subset == "test":
             self._walker = test_walker
+        elif subset == "val":
+            self._walker = val_walker
         else:
             self._walker = outsiders
 

@@ -69,6 +69,17 @@ def main(args):
     )
     train_generator = torch.utils.data.DataLoader(train_data, **generator_params)
 
+    val_data = LibriSpeech4SpeakerRecognition(
+        root=hp.data_root,
+        url=hp.data_subset,
+        train_speaker_ratio=hp.train_speaker_ratio,
+        train_utterance_ratio=hp.train_utterance_ratio,
+        subset="val",
+        project_fs=hp.sr,
+        wav_length=args.wav_length,
+    )
+    val_generator = torch.utils.data.DataLoader(val_data, **generator_params)
+
     if args.model_type=='cnn':
         model = RawAudioCNN(num_class=data_resolver.get_num_speakers())
     elif args.model_type=='tdnn':
@@ -137,6 +148,7 @@ def main(args):
         loss_epoch.append(loss.item())
         acc_epoch.append(acc_)
 
+        # validation accuracy
         message = f"It [{batch_idx}] train-loss: {loss.item():.4f} \ttrain-acc (batch): {acc_:.4f}"
         
         if args.alr_weight > 0:
@@ -150,6 +162,17 @@ def main(args):
 
         # Checkpointing
         if batch_idx % args.save_every == 0:
+            # log validation accuracy
+            model.eval()
+            val_acc = []
+            for val_batch in val_generator:
+                inputs, labels = (x.to(device) for x in val_batch)
+                outputs = model(inputs)
+                val_acc.append(np.mean((torch.argmax(outputs, dim=1) == labels).detach().cpu().numpy()))
+            val_acc = np.mean(val_acc)
+            message = f"\nValidation accuracy: {val_acc}"
+            print(message)
+            logging.info(message)
             torch.save(model, ckpt + f"_{batch_idx}.tmp")
             torch.save(optimizer, ckpt + f"_{batch_idx}.optimizer.tmp")
             print()
@@ -177,19 +200,20 @@ def main(args):
 
 
 def parse_args():
+    name="clean_tdnn"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "-m", "--model_ckpt", type=str, default="eps0.5", help="Model checkpoint")
+        "-m", "--model_ckpt", type=str, default=f"model/{name}", help="Model checkpoint")
     parser.add_argument(
-        "-g", "--log", type=str, default="train2.log", help="Experiment log")
+        "-g", "--log", type=str, default=f"model/train_logs/train_{name}.log", help="Experiment log")
     parser.add_argument(
-        "-mt", "--model_type", type=str, default='cnn', help="Model type: cnn or tdnn")
+        "-mt", "--model_type", type=str, default='tdnn', help="Model type: cnn or tdnn")
     parser.add_argument(
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")
     parser.add_argument(
-        "-n", "--n_iters", type=int, default=2000,
+        "-n", "--n_iters", type=int, default=5000,
         help="Number of iterations for training"
     )
     parser.add_argument(
@@ -197,10 +221,10 @@ def parse_args():
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
-        "-s", "--save_every", type=int, default=500, help="Save after this number of gradient updates"
+        "-s", "--save_every", type=int, default=1000, help="Save after this number of gradient updates"
     )
     parser.add_argument(
-        "-e", "--epsilon", type=float, default=0.5,
+        "-e", "--epsilon", type=float, default=0,
         help="Noise magnitude in data augmentation; set it to 0 to disable augmentation")
     parser.add_argument(
         "-w", "--alr_weight", type=float, default=0,

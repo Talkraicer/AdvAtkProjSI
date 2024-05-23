@@ -20,6 +20,8 @@ def _is_cuda_available():
     return torch.cuda.is_available()
 
 
+
+
 def _get_device():
     return torch.device("cuda" if _is_cuda_available() else "cpu")
 
@@ -217,7 +219,7 @@ def parse_args():
         help="Number of iterations for training"
     )
     parser.add_argument(
-        "-ne", "--n_epochs", type=int, default=None,
+        "-ne", "--n_epochs", type=int, default=10,
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(

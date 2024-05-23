@@ -20,6 +20,7 @@ class Hparams():
         self.data_root = "./"
         self.data_subset = "train-clean-100"
         self.train_speaker_ratio = 1
-        self.train_utterance_ratio = 0.9
+        self.train_utterance_ratio = 0.8
+        self.val_utter_ratio = 0.1
 
 hp = Hparams()

@@ -200,7 +200,7 @@ def main(args):
 
 
 def parse_args():
-    name="epsilon_1"
+    name="clean"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
@@ -224,7 +224,7 @@ def parse_args():
         "-s", "--save_every", type=int, default=1000, help="Save after this number of gradient updates"
     )
     parser.add_argument(
-        "-e", "--epsilon", type=float, default=1,
+        "-e", "--epsilon", type=float, default=0,
         help="Noise magnitude in data augmentation; set it to 0 to disable augmentation")
     parser.add_argument(
         "-w", "--alr_weight", type=float, default=0,

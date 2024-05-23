@@ -200,7 +200,7 @@ def main(args):
 
 
 def parse_args():
-    name="clean"
+    name="clean_tdnn"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
@@ -208,7 +208,7 @@ def parse_args():
     parser.add_argument(
         "-g", "--log", type=str, default=f"model/train_logs/train_{name}.log", help="Experiment log")
     parser.add_argument(
-        "-mt", "--model_type", type=str, default='cnn', help="Model type: cnn or tdnn")
+        "-mt", "--model_type", type=str, default='tdnn', help="Model type: cnn or tdnn")
     parser.add_argument(
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")

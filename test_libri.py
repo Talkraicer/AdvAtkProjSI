@@ -352,8 +352,8 @@ def parse_args():
     parser.add_argument("-m", "--model_ckpt", required=True,default="model/eps0.5" , help="Checkpoint of the pretrained model.")
     parser.add_argument("-o", "--output_dir", type=Path, default=None, required=True, help="Outputs/results will be saved here")
     parser.add_argument("-a", "--attack", default="FastGradientMethod", help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
-    parser.add_argument("-e", "--epsilon", type=float, default=None, help="Perturbation value")
-    parser.add_argument("-mi", "--attack_max_iter", type=int, default=None, help="Max iterations for iterative attacks like PGD")
+    parser.add_argument("-e", "--epsilon", type=float, default=0.01, help="Perturbation value")
+    parser.add_argument("-mi", "--attack_max_iter", type=int, default=100, help="Max iterations for iterative attacks like PGD")
     parser.add_argument("-s", "--snr", type=float, default=None, help="Signal-to-noise ratio (in decibel). You can provide this instead of epsilon.")
     parser.add_argument(
         "-t", "--target", type=int, default=None,

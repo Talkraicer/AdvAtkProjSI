@@ -195,14 +195,14 @@ def parse_args():
         help="Number of iterations for training"
     )
     parser.add_argument(
-        "-ne", "--n_epochs", type=int, default=None,
+        "-ne", "--n_epochs", type=int, default=10,
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
         "-s", "--save_every", type=int, default=500, help="Save after this number of gradient updates"
     )
     parser.add_argument(
-        "-e", "--epsilon", type=float, default=0.5,
+        "-e", "--epsilon", type=float, default=0,
         help="Noise magnitude in data augmentation; set it to 0 to disable augmentation")
     parser.add_argument(
         "-w", "--alr_weight", type=float, default=0,

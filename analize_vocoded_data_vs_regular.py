@@ -3,6 +3,7 @@ from tqdm import tqdm
 import torch
 import torchaudio
 from torch.nn.functional import mse_loss
+import numpy as np
 
 from speechbrain.lobes.models.FastSpeech2 import mel_spectogram
 
@@ -61,6 +62,28 @@ def plot_mse_distribution(mse_values, title):
     plt.show()
     # save the figure
     plt.savefig(f"{title}.png")
+    # plot the same figure with 5 and 95 percentile
+    plt.clf()
+    plt.cla()
+    plt.hist(mse_values, bins=100)
+    plt.title(title)
+    plt.xlabel("MSE")
+    plt.ylabel("Frequency")
+    plt.axvline(x=np.percentile(mse_values, 5), color='r', linestyle='dashed', linewidth=2)
+    plt.axvline(x=np.percentile(mse_values, 95), color='r', linestyle='dashed', linewidth=2)
+    plt.show()
+    # save the figure
+    plt.savefig(f"{title}_with_percentile.png")
+    # save for text file the following statistics: mean, median, 5 percentile, 95 percentile, std, max, min
+    with open(f"{title}_statistics.txt", "w") as f:
+        f.write(f"Mean: {np.mean(mse_values)}\n")
+        f.write(f"Median: {np.median(mse_values)}\n")
+        f.write(f"5 Percentile: {np.percentile(mse_values, 5)}\n")
+        f.write(f"95 Percentile: {np.percentile(mse_values, 95)}\n")
+        f.write(f"STD: {np.std(mse_values)}\n")
+        f.write(f"Max: {np.max(mse_values)}\n")
+        f.write(f"Min: {np.min(mse_values)}\n")
+
 
 
 if __name__ == "__main__":

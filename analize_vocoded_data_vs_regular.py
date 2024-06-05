@@ -4,7 +4,6 @@ import torch
 import torchaudio
 from torch.nn.functional import mse_loss
 
-from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.lobes.models.FastSpeech2 import mel_spectogram
 
 from matplotlib import pyplot as plt

@@ -17,7 +17,7 @@ class Hparams():
         self.aux_context_window = 2
 
         #self.data_root = "/data/speech"
-        self.data_root = "./"
+        self.data_root = "C:\Adverserial"
         self.data_subset = "train-clean-100"
         self.train_speaker_ratio = 1
         self.train_utterance_ratio = 0.8

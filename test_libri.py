@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
 from scipy.io.wavfile import write
 import matplotlib.pyplot as plt
@@ -20,6 +21,8 @@ from hparams import hp
 import os, pdb
 import torchaudio
 
+import warnings
+warnings.filterwarnings("ignore")
 
 # set seed
 np.random.seed(123)
@@ -145,7 +148,7 @@ class AsyncReporter():
                 "| avg eps    | avg SNR   |  ASR    |\n"
                 "| ------     |   ---     |  ---    |\n"
             )
-            with open(args.report, "a") as fp:
+            with open(args.report, "a+") as fp:
                 fp.write(header)
 
         self.report_file = report_file
@@ -203,7 +206,7 @@ def main(args):
 
     snrs = []
     epss = []
-    for i, data in enumerate(loader, 1):
+    for i, data in tqdm(enumerate(loader, 1), total=len(loader)):
 
         if return_file_name:
             waveform, label, filename = data
@@ -288,11 +291,11 @@ def main(args):
             f.write("Processing "+str(i)+"/"+str(len(loader))+": [L="+str(label)+"|P="+str(pred)+"|A="+str(pred_adv)+"]\tSNR="+str(snr.item())+"\tNASR="+str(counter.asr())+"\tTASR="+str(counter.tasr())+"\taccuracy="+str(counter.accuracy())+"\taccuracy adversarial="+str(counter.accuracy_adversarial())+"\n" )
         
         if args.save_wav:
-            print("Saving adversarial wav for label =", label)
+            # print("Saving adversarial wav for label =", label)
 
             spk, chap, utt = filename.split("-")
             audio_save_dir = os.path.join(args.output_dir, "wavs", spk, chap)
-            os.system("mkdir -p "+audio_save_dir)
+            os.makedirs(audio_save_dir, exist_ok=True)
             audio_save_file = os.path.join(audio_save_dir, filename+".wav")
             # this creates 32-bit PCM
             write(audio_save_file, hp.sr, 
@@ -346,25 +349,28 @@ def main(args):
     # # =====================================================
 
 
-def parse_args():
+def parse_args(name, eps,attack):
+    attack_to_atk = {"PGD":"ProjectedGradientDescent", "CWLinf":"CarliniLInfMethod", "CWL2":"CarliniL2Method"}
+    atk = attack_to_atk[attack]
+    output_name = f"eps{eps}_atk{attack}"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # parser.add_argument("-m", "--model_ckpt", required=True,default="model/eps0.5" , help="Checkpoint of the pretrained model.")
-    parser.add_argument("-m", "--model_ckpt",default="model/eps0.5_v2" , help="Checkpoint of the pretrained model.")
+    parser.add_argument("-m", "--model_ckpt",default=f"model/{name}.tmp" , help="Checkpoint of the pretrained model.")
     # parser.add_argument("-o", "--output_dir", type=Path, default=None, required=True, help="Outputs/results will be saved here")
-    parser.add_argument("-o", "--output_dir", type=Path, default=None, help="Outputs/results will be saved here")
-    parser.add_argument("-a", "--attack", default="FastGradientMethod", help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
-    parser.add_argument("-e", "--epsilon", type=float, default=0.01, help="Perturbation value")
-    parser.add_argument("-mi", "--attack_max_iter", type=int, default=100, help="Max iterations for iterative attacks like PGD")
+    parser.add_argument("-o", "--output_dir", type=Path, default=f"C:\Adverserial\{name}_{output_name}", help="Outputs/results will be saved here")
+    parser.add_argument("-a", "--attack", default=atk, help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
+    parser.add_argument("-e", "--epsilon", type=float, default=eps, help="Perturbation value")
+    parser.add_argument("-mi", "--attack_max_iter", type=int, default=3, help="Max iterations for iterative attacks like PGD")
     parser.add_argument("-s", "--snr", type=float, default=None, help="Signal-to-noise ratio (in decibel). You can provide this instead of epsilon.")
     parser.add_argument(
         "-t", "--target", type=int, default=None,
         help="Attack target. Set it to `None` for untargeted attacks. Note: Targeted attacks have not been tested in our experiments.")
     parser.add_argument(
-        "-r", "--report", default=None,
+        "-r", "--report", default=f"C:\Adverserial\{name}_{output_name}\\report.txt",
         help="A text file for documenting the final results.")
     parser.add_argument(
-        "-w", "--save_wav", type=int, default=0, help="Save adversarial wav files to ouput_dir? (0/1)")
+        "-w", "--save_wav", type=int, default=1, help="Save adversarial wav files to ouput_dir? (0/1)")
     parser.add_argument(
         "-wid", "--save_iter_id", type=int, help='Only save at this iter id', default=None)
     parser.add_argument(
@@ -397,4 +403,10 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    main(parse_args())
+    names = ["clean_4000_96.7"]
+    attacks = ["PGD", "CWLinf"]
+    epsilons = [0.002, 0.0035, 0.005]
+    for name in names:
+        for eps in epsilons:
+            for attack in attacks:
+                main(parse_args(name,eps, attack))

@@ -202,7 +202,7 @@ def main(args):
 
 
 def parse_args():
-    name="clean_tdnn"
+    name="epsilon_1_tdnn"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
@@ -215,7 +215,7 @@ def parse_args():
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")
     parser.add_argument(
-        "-n", "--n_iters", type=int, default=5000,
+        "-n", "--n_iters", type=int, default=1000,
         help="Number of iterations for training"
     )
     parser.add_argument(
@@ -223,10 +223,10 @@ def parse_args():
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
-        "-s", "--save_every", type=int, default=1000, help="Save after this number of gradient updates"
+        "-s", "--save_every", type=int, default=100, help="Save after this number of gradient updates"
     )
     parser.add_argument(
-        "-e", "--epsilon", type=float, default=0,
+        "-e", "--epsilon", type=float, default=1,
         help="Noise magnitude in data augmentation; set it to 0 to disable augmentation")
     parser.add_argument(
         "-w", "--alr_weight", type=float, default=0,

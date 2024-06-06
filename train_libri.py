@@ -8,7 +8,7 @@ from torch.optim import SGD, Adam
 import torch.nn.functional as F
 
 from dev.loaders import LibriSpeech4SpeakerRecognition, LibriSpeechSpeakers
-from dev.models import RawAudioCNN, ALR, TDNN
+from dev.models import RawAudioCNN, ALR, TDNN, SpectrogramCNN, DoubleModelCNN
 from dev.utils import infinite_iter
 
 from hparams import hp
@@ -86,6 +86,13 @@ def main(args):
         model = RawAudioCNN(num_class=data_resolver.get_num_speakers())
     elif args.model_type=='tdnn':
         model = TDNN(data_resolver.get_num_speakers())
+    elif args.model_type=='double':
+        cnn_audio = RawAudioCNN(num_class=data_resolver.get_num_speakers())
+        cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+        model = DoubleModelCNN(data_resolver.get_num_speakers(), cnn_audio, cnn_spec)
+        if args.double_model_ckpt is not None:
+            model.cnn_audio.load_state_dict(torch.load(args.cnn_audio_model_ckpt))
+            model.cnn_spec.load_state_dict(torch.load(args.cnn_spec_model_ckpt))
     else:
         logging.error('Please provide a valid model architecture type!')
         sys.exit(-1)
@@ -202,11 +209,13 @@ def main(args):
 
 
 def parse_args():
-    name="clean_tdnn"
+    name = "clean_tdnn"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "-m", "--model_ckpt", type=str, default=f"model/{name}", help="Model checkpoint")
+        "-mn", "--model_name", type=str, default=name, help="Model name")
+    parser.add_argument(
+        "-m", "--model_ckpt", type=str, default=f"model/{name}/{name}", help="Model checkpoint")
     parser.add_argument(
         "-g", "--log", type=str, default=f"model/train_logs/train_{name}.log", help="Experiment log")
     parser.add_argument(
@@ -223,7 +232,7 @@ def parse_args():
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
-        "-s", "--save_every", type=int, default=1000, help="Save after this number of gradient updates"
+        "-s", "--save_every", type=int, default=100, help="Save after this number of gradient updates"
     )
     parser.add_argument(
         "-e", "--epsilon", type=float, default=0,
@@ -245,8 +254,34 @@ def parse_args():
     parser.add_argument(
         "-nw", "--num_workers", type=int, default=8,
         help="Number of workers related to pytorch data loader")
+    parser.add_argument(
+        "-dm", "--double_model_ckpt", type=bool, default=False,
+        help="Checkpoint for double model"
+    )
+    parser.add_argument(
+        "-ca", "--cnn_audio_model_ckpt", type=str, default=None,
+        help="Checkpoint for cnn_audio model"
+    )
+    parser.add_argument(
+        "-cs", "--cnn_spec_model_ckpt", type=str, default=None,
+        help="Checkpoint for cnn_spec model"
+    )
     
     args = parser.parse_args()
+
+    # check if model_cpkt is default or not
+    model_name = args.model_name
+    if model_name != name:
+        if args.model_ckpt == f"model/{name}/{name}":
+            args.model_ckpt = f"model/{model_name}/{model_name}"
+        if args.log == f"model/train_logs/train_{name}.log":
+            args.log = f"model/train_logs/train_{model_name}.log"
+
+    if os.path.exists(args.model_ckpt):
+        logging.error("Model checkpoint already exists. Please provide a new model checkpoint")
+        sys.exit(-1)
+    else:
+        os.makedirs(os.path.dirname(args.model_ckpt), exist_ok=True)
 
     #clean log file
     with open(args.log, "w") as f:

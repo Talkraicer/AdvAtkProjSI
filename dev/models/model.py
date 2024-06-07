@@ -221,15 +221,25 @@ class DoubleModelCNN(nn.Module):
 
         self.fc = nn.Linear(64, num_class)
 
-    def forward(self, audio, spectrogram):
+    def forward(self, audio):
         """
         Inputs:
             x: [B, 1, T] waveform
         Outputs:
             x: [B, 1, T] waveform
         """
+        spectrogram = self.prep(audio.squeeze(1))
         embedding1 = self.cnn_audio.encode(audio)
         embedding2 = self.cnn_spec.encode(spectrogram)
         embedding = torch.cat([embedding1, embedding2], dim=1)
         logits = self.fc(embedding)
         return logits
+
+    def encode(self, audio):
+        spectrogram = self.prep(audio.squeeze(1))
+        embedding1 = self.cnn_audio.encode(audio)
+        embedding2 = self.cnn_spec.encode(spectrogram)
+        return torch.cat([embedding1, embedding2], dim=1)
+
+    def predict_from_embeddings(self, x):
+        return self.fc(x)

@@ -91,8 +91,17 @@ def main(args):
         cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
         model = DoubleModelCNN(data_resolver.get_num_speakers(), cnn_audio, cnn_spec)
         if args.double_model_ckpt is not None:
-            model.cnn_audio.load_state_dict(torch.load(args.cnn_audio_model_ckpt))
-            model.cnn_spec.load_state_dict(torch.load(args.cnn_spec_model_ckpt))
+            if args.cnn_audio_model_ckpt is None or args.cnn_spec_model_ckpt is None:
+                model.cnn_audio = RawAudioCNN(num_class=data_resolver.get_num_speakers())
+                model.cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+            else:
+                model.cnn_audio = torch.load(args.cnn_audio_model_ckpt)
+                second_ckpt_model = torch.load(args.cnn_spec_model_ckpt)
+                # save the state dict of the second model
+                model.cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+                model.cnn_spec.load_state_dict(second_ckpt_model.state_dict())
+
+
     else:
         logging.error('Please provide a valid model architecture type!')
         sys.exit(-1)

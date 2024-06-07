@@ -14,7 +14,8 @@ from dev.utils import infinite_iter
 from hparams import hp
 import pdb, sys, os
 import numpy as np
-
+import warnings
+warnings.filterwarnings("ignore")
 
 def _is_cuda_available():
     return torch.cuda.is_available()
@@ -100,6 +101,8 @@ def main(args):
                 # save the state dict of the second model
                 model.cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
                 model.cnn_spec.load_state_dict(second_ckpt_model.state_dict())
+                if args.freeze_cnn:
+                    model.freeze_cnns()
 
 
     else:
@@ -134,7 +137,8 @@ def main(args):
         batch_idx += 1
         inputs, labels = (x.to(device) for x in batch_data)
         model.train()
-
+        if args.freeze_cnn:
+            model.freeze_cnns()
         if args.epsilon > 0:
             inputs, labels = noise_augmenter(inputs, labels, args.epsilon)
 
@@ -218,17 +222,17 @@ def main(args):
 
 
 def parse_args():
-    name = "clean_tdnn"
+    name = "DoubleModelCNN"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "-mn", "--model_name", type=str, default=name, help="Model name")
     parser.add_argument(
-        "-m", "--model_ckpt", type=str, default=f"model/{name}/{name}", help="Model checkpoint")
+        "-m", "--model_ckpt", type=str, default=f"model/{name}", help="Model checkpoint")
     parser.add_argument(
         "-g", "--log", type=str, default=f"model/train_logs/train_{name}.log", help="Experiment log")
     parser.add_argument(
-        "-mt", "--model_type", type=str, default='tdnn', help="Model type: cnn or tdnn")
+        "-mt", "--model_type", type=str, default='double', help="Model type: cnn or tdnn")
     parser.add_argument(
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")
@@ -264,16 +268,20 @@ def parse_args():
         "-nw", "--num_workers", type=int, default=8,
         help="Number of workers related to pytorch data loader")
     parser.add_argument(
-        "-dm", "--double_model_ckpt", type=bool, default=False,
+        "-dm", "--double_model_ckpt", type=bool, default=True,
         help="Checkpoint for double model"
     )
     parser.add_argument(
-        "-ca", "--cnn_audio_model_ckpt", type=str, default=None,
+        "-ca", "--cnn_audio_model_ckpt", type=str, default="model/clean_4000_96.7.tmp",
         help="Checkpoint for cnn_audio model"
     )
     parser.add_argument(
-        "-cs", "--cnn_spec_model_ckpt", type=str, default=None,
+        "-cs", "--cnn_spec_model_ckpt", type=str, default="model/CNN_Vocoded_clean_4000_94.8.tmp",
         help="Checkpoint for cnn_spec model"
+    )
+    parser.add_argument(
+        "-fc", "--freeze_cnn", type=bool, default=True,
+        help="Freeze the CNNs"
     )
     
     args = parser.parse_args()

@@ -243,3 +243,10 @@ class DoubleModelCNN(nn.Module):
 
     def predict_from_embeddings(self, x):
         return self.fc(x)
+
+    def freeze_cnns(self):
+        for param in self.cnn_audio.parameters():
+            param.requires_grad = False
+        for param in self.cnn_spec.parameters():
+            param.requires_grad = False
+

@@ -403,7 +403,7 @@ def parse_args(name, eps,attack):
 
 
 if __name__ == "__main__":
-    names = ["CNN_Vocoded_clean_4000_94.8"]
+    names = ["DoubleModelCNN_900_98.7"]
     attacks = ["FGSM","PGD", "CWLinf"]
     epsilons = [0.0005,0.005]
     for name in names:

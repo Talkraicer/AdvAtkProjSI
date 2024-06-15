@@ -352,7 +352,7 @@ def main(args):
 def parse_args(name, eps,attack):
     attack_to_atk = {"FGSM":"FastGradientMethod","PGD":"ProjectedGradientDescent", "CWLinf":"CarliniLInfMethod", "CWL2":"CarliniL2Method"}
     atk = attack_to_atk[attack]
-    output_name = f"vocdata_eps{eps}_atk{attack}"
+    output_name = f"cleandata_eps{eps}_atk{attack}"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # parser.add_argument("-m", "--model_ckpt", required=True,default="model/eps0.5" , help="Checkpoint of the pretrained model.")
@@ -403,7 +403,7 @@ def parse_args(name, eps,attack):
 
 
 if __name__ == "__main__":
-    names = ["DoubleModelCNN_900_98.7"]
+    names = ["CNN_Vocoded_clean_4000_94.8"]
     attacks = ["FGSM","PGD", "CWLinf"]
     epsilons = [0.0005,0.005]
     for name in names:

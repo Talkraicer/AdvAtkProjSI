@@ -6,6 +6,7 @@ import time
 import torch
 from torch.optim import SGD, Adam
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from dev.loaders import LibriSpeech4SpeakerRecognition, LibriSpeechSpeakers
 from dev.models import RawAudioCNN, ALR, TDNN
@@ -114,7 +115,7 @@ def main(args):
     batch_idx = 0
     loss_epoch = []
     acc_epoch = []
-    for batch_data in infinite_iter(train_generator):
+    for batch_data in tqdm(infinite_iter(train_generator), total=args.n_iters):
         batch_idx += 1
         inputs, labels = (x.to(device) for x in batch_data)
         model.train()
@@ -202,7 +203,7 @@ def main(args):
 
 
 def parse_args():
-    name="clean_tdnn"
+    name="CNN_Vocoded_clean"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
@@ -210,7 +211,7 @@ def parse_args():
     parser.add_argument(
         "-g", "--log", type=str, default=f"model/train_logs/train_{name}.log", help="Experiment log")
     parser.add_argument(
-        "-mt", "--model_type", type=str, default='tdnn', help="Model type: cnn or tdnn")
+        "-mt", "--model_type", type=str, default='cnn', help="Model type: cnn or tdnn")
     parser.add_argument(
         "-l", "--wav_length", type=int, default=80000,
         help="Max length of waveform in a batch")
@@ -219,11 +220,11 @@ def parse_args():
         help="Number of iterations for training"
     )
     parser.add_argument(
-        "-ne", "--n_epochs", type=int, default=10,
+        "-ne", "--n_epochs", type=int, default=100,
         help="Number of epochs for training. Optional. Ignored if not provided."
     )
     parser.add_argument(
-        "-s", "--save_every", type=int, default=1000, help="Save after this number of gradient updates"
+        "-s", "--save_every", type=int, default=500, help="Save after this number of gradient updates"
     )
     parser.add_argument(
         "-e", "--epsilon", type=float, default=0,

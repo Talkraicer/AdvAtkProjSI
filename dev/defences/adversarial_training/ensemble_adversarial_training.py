@@ -20,9 +20,9 @@ class EnsembleAdversarialTrainer():
         #self.adversarial_trainer = AdversarialTrainer(classifier=classifier, attacks=attack_methods, ratio=ratio)
         self.adversarial_trainer = AdversarialTrainerWrapper(classifier=classifier, attacks=attack_methods, ratio=ratio, augment=augment)
     
-    def fit_generator(self, train_generator, epochs):
+    def fit_generator(self, train_generator, epochs = 20):
         train_generator_art = PyTorchDataGenerator(train_generator, len(train_generator.dataset), train_generator.batch_size)
-        self.adversarial_trainer.fit_generator(train_generator_art, nb_epochs=epochs) 
+        self.adversarial_trainer.fit_generator(train_generator_art, nb_epochs=epochs)
 
     def get_backend_model(self):
         return self.adversarial_trainer.classifier._model._model 
@@ -82,6 +82,8 @@ class AdversarialTrainerWrapper(AdversarialTrainer):
                 self._precomputed_adv_samples.append(next_precomputed_adv_samples)
             else:
                 self._precomputed_adv_samples.append(None)
+
+        bst_val_acc = 0
 
         for i_epoch in range(nb_epochs):
             logger.info("Adversarial training epoch %i/%i", i_epoch, nb_epochs)
@@ -171,7 +173,3 @@ class AdversarialTrainerWrapper(AdversarialTrainer):
             print('--------------------------------------')
             print()
             logger.info("EPOCH {}/{}: Acc = {:.6f}\tAcc adv = {:.6f}\tAcc normal = {:.6f}".format(i_epoch, nb_epochs, np.mean(all_accuracies), np.mean(all_accuracies_adv), np.mean(all_accuracies_normal)))
-
-
-    
-        

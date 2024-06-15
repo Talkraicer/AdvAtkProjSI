@@ -2,7 +2,7 @@ import os
 from tqdm import tqdm
 import torch
 import torchaudio
-
+import librosa
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.lobes.models.FastSpeech2 import mel_spectogram
 
@@ -29,8 +29,8 @@ def apply_vocoder(audio_path, output_path, saving_sr=16000):
 
 # plot the original waveform and the vocoded waveform, the attacked waveform and the vocoded attacked waveform
 def plot_waveforms(clean_audio, attacked_audio, saving_sr=16000):
-    clean_waveform, sample_rate = torchaudio.load(clean_audio, )
-    attacked_waveform, sample_rate = torchaudio.load(attacked_audio)
+    clean_waveform = torch.tensor(librosa.load(clean_audio, sr=saving_sr)[0])
+    attacked_waveform = torch.tensor(librosa.load(attacked_audio, sr=saving_sr)[0])
 
     clean_mel_spectrogram, _ = mel_spectogram(audio=clean_waveform.squeeze(), sample_rate=22500, hop_length=256,
                                               win_length=None,
@@ -92,10 +92,11 @@ def mse_of_dir(audio_dir1, audio_dir2):
 
 
 if __name__ == "__main__":
-    audio_source_dir = "LibriSpeech/train-clean-100/103/1240"
+    audio_source_dir = "C:/Adverserial/LibriSpeech/train-clean-100/103/1240"
+    audio_attacked_dir = "C:/Adverserial/clean_4000_96.7/wavs/103/1240"
+    audio_file ="103-1240-0047.flac"
     audio_output_dir = "103/1240_vocoded_clean"
-
-    plot_waveforms("LibriSpeech/train-clean-100/103/1240/103-1240-0047.flac", "103/1240/103-1240-0047.wav")
+    plot_waveforms(f"{audio_source_dir}/{audio_file}", f"{audio_attacked_dir}/{audio_file.replace('.flac', '.wav')}")
 
     # if not os.path.exists(audio_output_dir):
     #     os.makedirs(audio_output_dir)

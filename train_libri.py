@@ -9,13 +9,14 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from dev.loaders import LibriSpeech4SpeakerRecognition, LibriSpeechSpeakers
-from dev.models import RawAudioCNN, ALR, TDNN
+from dev.models import RawAudioCNN, ALR, TDNN, SpectrogramCNN, DoubleModelCNN
 from dev.utils import infinite_iter
 
 from hparams import hp
 import pdb, sys, os
 import numpy as np
-
+import warnings
+warnings.filterwarnings("ignore")
 
 def _is_cuda_available():
     return torch.cuda.is_available()
@@ -87,6 +88,24 @@ def main(args):
         model = RawAudioCNN(num_class=data_resolver.get_num_speakers())
     elif args.model_type=='tdnn':
         model = TDNN(data_resolver.get_num_speakers())
+    elif args.model_type=='double':
+        cnn_audio = RawAudioCNN(num_class=data_resolver.get_num_speakers())
+        cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+        model = DoubleModelCNN(data_resolver.get_num_speakers(), cnn_audio, cnn_spec)
+        if args.double_model_ckpt is not None:
+            if args.cnn_audio_model_ckpt is None or args.cnn_spec_model_ckpt is None:
+                model.cnn_audio = RawAudioCNN(num_class=data_resolver.get_num_speakers())
+                model.cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+            else:
+                model.cnn_audio = torch.load(args.cnn_audio_model_ckpt)
+                second_ckpt_model = torch.load(args.cnn_spec_model_ckpt)
+                # save the state dict of the second model
+                model.cnn_spec = SpectrogramCNN(num_class=data_resolver.get_num_speakers())
+                model.cnn_spec.load_state_dict(second_ckpt_model.state_dict())
+                if args.freeze_cnn:
+                    model.freeze_cnns()
+
+
     else:
         logging.error('Please provide a valid model architecture type!')
         sys.exit(-1)
@@ -119,7 +138,8 @@ def main(args):
         batch_idx += 1
         inputs, labels = (x.to(device) for x in batch_data)
         model.train()
-
+        if args.freeze_cnn:
+            model.freeze_cnns()
         if args.epsilon > 0:
             inputs, labels = noise_augmenter(inputs, labels, args.epsilon)
 
@@ -203,9 +223,12 @@ def main(args):
 
 
 def parse_args():
+    name = "DoubleModelCNN"
     name="CNN_Vocoded_clean"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "-mn", "--model_name", type=str, default=name, help="Model name")
     parser.add_argument(
         "-m", "--model_ckpt", type=str, default=f"model/{name}", help="Model checkpoint")
     parser.add_argument(
@@ -246,8 +269,38 @@ def parse_args():
     parser.add_argument(
         "-nw", "--num_workers", type=int, default=8,
         help="Number of workers related to pytorch data loader")
-    
+    parser.add_argument(
+        "-dm", "--double_model_ckpt", type=bool, default=True,
+        help="Checkpoint for double model"
+    )
+    parser.add_argument(
+        "-ca", "--cnn_audio_model_ckpt", type=str, default="model/clean_4000_96.7.tmp",
+        help="Checkpoint for cnn_audio model"
+    )
+    parser.add_argument(
+        "-cs", "--cnn_spec_model_ckpt", type=str, default="model/CNN_Vocoded_clean_4000_94.8.tmp",
+        help="Checkpoint for cnn_spec model"
+    )
+    parser.add_argument(
+        "-fc", "--freeze_cnn", type=bool, default=True,
+        help="Freeze the CNNs"
+    )
+
     args = parser.parse_args()
+
+    # check if model_cpkt is default or not
+    model_name = args.model_name
+    if model_name != name:
+        if args.model_ckpt == f"model/{name}/{name}":
+            args.model_ckpt = f"model/{model_name}/{model_name}"
+        if args.log == f"model/train_logs/train_{name}.log":
+            args.log = f"model/train_logs/train_{model_name}.log"
+
+    if os.path.exists(args.model_ckpt):
+        logging.error("Model checkpoint already exists. Please provide a new model checkpoint")
+        sys.exit(-1)
+    else:
+        os.makedirs(os.path.dirname(args.model_ckpt), exist_ok=True)
 
     #clean log file
     with open(args.log, "w") as f:

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from dev.transforms import Preprocessor
 
+
 class RawAudioCNN(nn.Module):
     """Adaption of AudioNet (arXiv:1807.03418)."""
 
@@ -206,6 +207,7 @@ class SpectrogramCNN(nn.Module):
 
     def predict_from_embeddings(self, x):
         return self.fc(x)
+
 
 class DoubleModelCNN(nn.Module):
     """Adaption of AudioNet (arXiv:1807.03418)."""

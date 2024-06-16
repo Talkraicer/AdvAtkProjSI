@@ -1,7 +1,7 @@
 import argparse
 import time
 from argparse import ArgumentParser
-
+from tqdm import tqdm
 import numpy as np
 import torch
 from tqdm.auto import tqdm
@@ -41,12 +41,12 @@ def resolve_attacker_args(args, eps, eps_step, norm=np.inf, max_iter=None):
     elif args.attack == "NoiseAttack":
         kwargs = {"eps": eps}
     elif args.attack == "FastGradientMethod":
-        kwargs = {"eps": eps, "eps_step": eps_step, "targeted": targeted, "norm":norm}
+        kwargs = {"eps": eps, "eps_step": eps_step, "targeted": targeted, "norm": norm}
     elif args.attack == "ProjectedGradientDescent":
-        kwargs = {"eps": eps, "eps_step": eps_step, "targeted": targeted, "norm":norm, "max_iter":max_iter}
-    elif args.attack  in ["CarliniLInfMethod"]:
+        kwargs = {"eps": eps, "eps_step": eps_step, "targeted": targeted, "norm": norm, "max_iter": max_iter}
+    elif args.attack in ["CarliniLInfMethod"]:
         kwargs = {"eps": eps, "targeted": targeted}
-    elif args.attack  in ["CarliniL2Method"]:
+    elif args.attack in ["CarliniL2Method"]:
         kwargs = {"confidence": eps, "targeted": targeted}
     else:
         raise NotImplementedError
@@ -64,6 +64,7 @@ class AttackResultCounter():
         if your model always predict the wrong label,
         without attacks, NASR is already 100%.
     """
+
     def __init__(self):
         self.n_instance = 0
         self.n_nontarget_instance = 0
@@ -71,7 +72,7 @@ class AttackResultCounter():
         self.n_successful_untargeted = 0
         self.n_successful_targeted = 0
         self.n_correct_prediction_adversarial = 0
-    
+
     def update(self, label, prediction, adversarial_prediction, target=None):
         self.n_instance += 1
 
@@ -80,8 +81,8 @@ class AttackResultCounter():
 
         if adversarial_prediction == label:
             self.n_correct_prediction_adversarial += 1
-            #this is simply accuracy on adversarial samples
-            #much simpler to use
+            # this is simply accuracy on adversarial samples
+            # much simpler to use
 
         if prediction != adversarial_prediction:
             self.n_successful_untargeted += 1
@@ -152,7 +153,7 @@ class AsyncReporter():
                 fp.write(header)
 
         self.report_file = report_file
-    
+
     def update(self, average_epsilon, average_snr, rate):
         with open(self.report_file, "a") as fp:
             row = (
@@ -166,7 +167,7 @@ class AsyncReporter():
 def main(args):
     # load Libri test set
     resolver = LibriSpeechSpeakers(hp.data_root, hp.data_subset)
-    return_file_name=False
+    return_file_name = False
     if args.save_wav:
         return_file_name = True
     dataset = LibriSpeech4SpeakerRecognition(
@@ -181,7 +182,6 @@ def main(args):
     )
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-
     # load pretrained model
     model = (
         torch.load(args.model_ckpt)
@@ -189,7 +189,6 @@ def main(args):
         .to(device)
     )
     print(model)
-
 
     # wrap model in a ART classifier
     classifier_art = PyTorchClassifier(
@@ -213,25 +212,24 @@ def main(args):
             filename = filename[0]
         else:
             waveform, label = data
-            
 
         if args.save_iter_id is not None and args.save_iter_id != i:
-                print("Skipping iter ", i)
-                continue
+            print("Skipping iter ", i)
+            continue
 
         # targeted attacks have not been tested in our experiments
         if args.target is None:
-            y = label #Original FGSM needs true labels to generate samples
-                      #there is a label_leaking phenomenta too. See, the paper
-                      #https://arxiv.org/pdf/1611.01236.pdf
-                      #ADVERSARIAL MACHINE LEARNING AT SCALE, Alex Kurakin et. al.
-                      #DON'T CONFUSE THIS WITH TARGETED ATTACK
+            y = label  # Original FGSM needs true labels to generate samples
+            # there is a label_leaking phenomenta too. See, the paper
+            # https://arxiv.org/pdf/1611.01236.pdf
+            # ADVERSARIAL MACHINE LEARNING AT SCALE, Alex Kurakin et. al.
+            # DON'T CONFUSE THIS WITH TARGETED ATTACK
         else:
             y = 0 * label.numpy() + args.target
         
         label = label.item()
 
-        #this can be done outside for loop
+        # this can be done outside for loop
         if args.epsilon is not None:
             eps = args.epsilon
         else:
@@ -240,10 +238,12 @@ def main(args):
             elif args.norm == 2:
                 eps = (waveform.pow(2).sum() / np.power(10, args.snr / 10)).sqrt().item()
             elif args.norm == 1:
-                eps = (waveform.abs().sum() / np.power(10, args.snr / 10 / 2)).item() / np.sqrt(np.log(10)) # resulting SNR is too small (10-20)  FIXME
+                eps = (waveform.abs().sum() / np.power(10, args.snr / 10 / 2)).item() / np.sqrt(
+                    np.log(10))  # resulting SNR is too small (10-20)
 
-        kwargs = resolve_attacker_args(args, eps, eps_step=eps / 5, norm=args.norm, max_iter=args.attack_max_iter)    # TODO ad-hoc
-        
+        kwargs = resolve_attacker_args(args, eps, eps_step=eps / 5, norm=args.norm,
+                                       max_iter=args.attack_max_iter)
+
         # craft adversarial example with PGD        
         attacker = AttackerFactory()(args.attack)(classifier_art, **kwargs)
         adv_waveform = torch.from_numpy(
@@ -288,8 +288,11 @@ def main(args):
         )
 
         with open(args.log, 'a') as f:
-            f.write("Processing "+str(i)+"/"+str(len(loader))+": [L="+str(label)+"|P="+str(pred)+"|A="+str(pred_adv)+"]\tSNR="+str(snr.item())+"\tNASR="+str(counter.asr())+"\tTASR="+str(counter.tasr())+"\taccuracy="+str(counter.accuracy())+"\taccuracy adversarial="+str(counter.accuracy_adversarial())+"\n" )
-        
+            f.write("Processing " + str(i) + "/" + str(len(loader)) + ": [L=" + str(label) + "|P=" + str(
+                pred) + "|A=" + str(pred_adv) + "]\tSNR=" + str(snr.item()) + "\tNASR=" + str(
+                counter.asr()) + "\tTASR=" + str(counter.tasr()) + "\taccuracy=" + str(
+                counter.accuracy()) + "\taccuracy adversarial=" + str(counter.accuracy_adversarial()) + "\n")
+
         if args.save_wav:
             # print("Saving adversarial wav for label =", label)
 
@@ -298,10 +301,10 @@ def main(args):
             os.makedirs(audio_save_dir, exist_ok=True)
             audio_save_file = os.path.join(audio_save_dir, filename+".wav")
             # this creates 32-bit PCM
-            write(audio_save_file, hp.sr, 
+            write(audio_save_file, hp.sr,
                   adv_waveform[0, 0].detach().cpu().numpy())
             # this creates 16-bit PCM
-            #torchaudio.save(audio_save_file, adv_waveform[0,0], hp.sr)
+            # torchaudio.save(audio_save_file, adv_waveform[0,0], hp.sr)
 
     tsv_writer.close()
     print()
@@ -379,25 +382,24 @@ def parse_args(name, eps,attack):
         "-g", "--log", type=str, default=None, help="Log file")
     parser.add_argument(
         "-n", "--norm", type=str, default="inf", help="inf, 1, 2")
-    
+    parser.add_argument('--data_root', type=str, default='data', help='Root directory of the dataset')
+
     args = parser.parse_args()
 
     assert not (args.epsilon is None and args.snr is None), "Set either `epsilon` or `snr`"
-    
+
     if args.norm == "inf":
         args.norm = np.inf
     else:
         args.norm = int(args.norm)
 
     args.save_wav = bool(args.save_wav)
-    
+
     if args.output_dir is not None:
         args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.log is None:
-        args.log = os.path.join(args.output_dir, "log_"+time.strftime("%Y%m%d-%H%M%S")+".txt")
-    with open(args.log, 'w') as f:
-        f.write("")
+    # if args.log is None:
+    #     args.log = os.path.join(args.output_dir, "log_" + time.strftime("%Y%m%d-%H%M%S") + ".txt")
 
     return args
 

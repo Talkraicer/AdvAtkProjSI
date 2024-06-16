@@ -22,7 +22,7 @@ def create_voceded_dataset(data_dir, output_dir):
         for dir in dirs:
             os.makedirs(os.path.join(output_dir, root, dir), exist_ok=True)
         for file in files:
-            if file.endswith(".flac"):
+            if file.endswith(".wav"):
                 file_path = os.path.join(root, file)
                 output_file_path = os.path.join(output_dir, root, file)
                 if not os.path.exists(output_file_path):
@@ -46,5 +46,12 @@ if __name__ == "__main__":
     hifi_gan.eval()
     # hifi_gan = hifi_gan.to("cuda")
     print(hifi_gan.device)
-    create_voceded_dataset("LibriSpeech", "VocodedLibriSpeech")
+    # aug_attacked_dirs = ["CWinf_eps_0.005", "CWinf_eps_0.0005", "FGSM_eps_0.005", "FGSM_eps_0.0005", "PGD_eps_0.005",
+    #                      "PGD_eps_0.0005"]
+    # aug_attacked_dirs = [os.path.join("attacks\\clean_cnn_eps_0.5", attack,) for attack in aug_attacked_dirs]
+    aug_attacked_dirs = ["attacks/clean_cnn_eps_0.5/FGSM_eps_0.0005"]
+    vocoded_dirs = ["vocoded_" + attack for attack in aug_attacked_dirs]
+    for i in range(len(aug_attacked_dirs)):
+        print(f"Creating vocoded dataset for {aug_attacked_dirs[i]}")
+        create_voceded_dataset(aug_attacked_dirs[i], vocoded_dirs[i])
     print("Done")

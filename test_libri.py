@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from tqdm import tqdm
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
 from scipy.io.wavfile import write
 import matplotlib.pyplot as plt
@@ -19,6 +20,9 @@ from dev.transforms import Preprocessor
 from hparams import hp
 import os, pdb
 import torchaudio
+
+import warnings
+warnings.filterwarnings("ignore")
 
 # set seed
 np.random.seed(123)
@@ -145,7 +149,7 @@ class AsyncReporter():
                 "| avg eps    | avg SNR   |  ASR    |\n"
                 "| ------     |   ---     |  ---    |\n"
             )
-            with open(args.report, "a") as fp:
+            with open(args.report, "a+") as fp:
                 fp.write(header)
 
         self.report_file = report_file
@@ -166,32 +170,16 @@ def main(args):
     return_file_name = False
     if args.save_wav:
         return_file_name = True
-    # dataset = LibriSpeech4SpeakerRecognition(
-    #     root=hp.data_root,
-    #     url=hp.data_subset,
-    #     subset="test",
-    #     train_speaker_ratio=hp.train_speaker_ratio,
-    #     train_utterance_ratio=hp.train_utterance_ratio,
-    #     project_fs=hp.sr,
-    #     wav_length=None,
-    #     return_file_name=return_file_name
-    # )
     dataset = LibriSpeech4SpeakerRecognition(
-        root=args.data_root,
-        url="wavs",
-        # root="./",
-        # url="train-clean-100",
+        root=hp.data_root,
+        url=hp.data_subset,
         subset="test",
-        # train_speaker_ratio=hp.train_speaker_ratio,
-        # train_utterance_ratio=hp.train_utterance_ratio,
-        train_speaker_ratio=1,
-        train_utterance_ratio=0,
-        val_utter_ratio=0,
-        project_fs=hp.sr,
+        train_speaker_ratio=hp.train_speaker_ratio,
+        train_utterance_ratio=hp.train_utterance_ratio,
+        project_fs=hp.sr,  # FIXME: unused
         wav_length=None,
         return_file_name=return_file_name
     )
-
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     # load pretrained model
@@ -207,16 +195,17 @@ def main(args):
         model=model,
         loss=torch.nn.CrossEntropyLoss(),
         optimizer=None,
-        input_shape=[1, 5 * hp.sr],
+        input_shape=[1, 5 * hp.sr],  # FIXME
         nb_classes=resolver.get_num_speakers(),
     )
 
     counter = AttackResultCounter()
     tsv_writer = ProjectorTSVWriter(args.output_dir, resolver=resolver)
 
+
     snrs = []
     epss = []
-    for i, data in enumerate(loader, 1):
+    for i, data in tqdm(enumerate(loader, 1), total=len(loader)):
 
         if return_file_name:
             waveform, label, filename = data
@@ -237,7 +226,7 @@ def main(args):
             # DON'T CONFUSE THIS WITH TARGETED ATTACK
         else:
             y = 0 * label.numpy() + args.target
-
+        
         label = label.item()
 
         # this can be done outside for loop
@@ -305,12 +294,12 @@ def main(args):
                 counter.accuracy()) + "\taccuracy adversarial=" + str(counter.accuracy_adversarial()) + "\n")
 
         if args.save_wav:
-            print("Saving adversarial wav for label =", label)
+            # print("Saving adversarial wav for label =", label)
 
             spk, chap, utt = filename.split("-")
             audio_save_dir = os.path.join(args.output_dir, "wavs", spk, chap)
-            os.system("mkdir -p " + audio_save_dir)
-            audio_save_file = os.path.join(audio_save_dir, filename + ".wav")
+            os.makedirs(audio_save_dir, exist_ok=True)
+            audio_save_file = os.path.join(audio_save_dir, filename+".wav")
             # this creates 32-bit PCM
             write(audio_save_file, hp.sr,
                   adv_waveform[0, 0].detach().cpu().numpy())
@@ -320,70 +309,71 @@ def main(args):
     tsv_writer.close()
     print()
 
+
     # # =====================================================
-    # prep = Preprocessor()
-    # mel = prep(waveform[0])
-    # nel = prep(noise[0])
-    # ael = prep(adv_waveform[0])
-    #
-    # fig, ax = plt.subplots(3, 1)
-    # ax[0].set_title(
-    #     f"Truth: {label}. Prediction: {pred}. Corrupted prediction: {pred_adv}\n"
-    #     "Top: clean. Middle: noise. Bottom: noisy"
-    # )
-    # im = ax[0].imshow(mel[0].detach().cpu().numpy(), origin="lower", aspect="auto")
-    # fig.colorbar(im, ax=ax[0])
-    # im = ax[1].imshow(nel[0].detach().cpu().numpy(), origin="lower", aspect="auto")
-    # fig.colorbar(im, ax=ax[1])
-    # im = ax[2].imshow(ael[0].detach().cpu().numpy(), origin="lower", aspect="auto")
-    # fig.colorbar(im, ax=ax[2])
-    # fig.savefig(args.output_dir / f"mel.png")
-    #
-    # fig, ax = plt.subplots(3, 1)
-    # im = ax[0].plot(waveform[0, 0].detach().cpu().numpy())
-    # im = ax[1].plot(noise[0, 0].detach().cpu().numpy())
-    # im = ax[2].plot(adv_waveform[0, 0].detach().cpu().numpy())
-    # fig.savefig(args.output_dir / f"wav.png")
-    #
-    # write(args.output_dir / f"noise.wav", hp.sr, noise[0, 0].detach().cpu().numpy())
-    # # write(args.output_dir / "ori.wav", hp.sr, waveform[0].numpy())
-    # # write(args.output_dir / "adv.wav", hp.sr, adv_waveform[0].numpy())
+    prep = Preprocessor()
+    mel = prep(waveform[0])
+    nel = prep(noise[0])
+    ael = prep(adv_waveform[0])
 
-    # if args.report is not None:
-    #     reporter = AsyncReporter(
-    #         args.report, args, counter,
-    #         num_params=count_parameters(model),
-    #     )
-    #     reporter.update(
-    #         average_epsilon=np.mean(epss),
-    #         average_snr=np.mean([s for s in snrs if s < 100]),
-    #         rate=counter.tasr() if args.target is not None else counter.asr(),
-    #     )
+    fig, ax = plt.subplots(3, 1)
+    ax[0].set_title(
+        f"Truth: {label}. Prediction: {pred}. Corrupted prediction: {pred_adv}\n"
+        "Top: clean. Middle: noise. Bottom: noisy"
+    )
+    im = ax[0].imshow(mel[0].detach().cpu().numpy(), origin="lower", aspect="auto")
+    fig.colorbar(im, ax=ax[0])
+    im = ax[1].imshow(nel[0].detach().cpu().numpy(), origin="lower", aspect="auto")
+    fig.colorbar(im, ax=ax[1])
+    im = ax[2].imshow(ael[0].detach().cpu().numpy(), origin="lower", aspect="auto")
+    fig.colorbar(im, ax=ax[2])
+    fig.savefig(args.output_dir / f"mel.png")
+
+    fig, ax = plt.subplots(3, 1)
+    im = ax[0].plot(waveform[0, 0].detach().cpu().numpy())
+    im = ax[1].plot(noise[0, 0].detach().cpu().numpy())
+    im = ax[2].plot(adv_waveform[0, 0].detach().cpu().numpy())
+    fig.savefig(args.output_dir / f"wav.png")
+
+    write(args.output_dir / f"noise.wav", hp.sr, noise[0, 0].detach().cpu().numpy())
+    # write(args.output_dir / "ori.wav", hp.sr, waveform[0].numpy())
+    # write(args.output_dir / "adv.wav", hp.sr, adv_waveform[0].numpy())
+
+    if args.report is not None:
+        reporter = AsyncReporter(
+            args.report, args, counter, 
+            num_params=count_parameters(model),
+        )
+        reporter.update(
+            average_epsilon=np.mean(epss), 
+            average_snr=np.mean([s for s in snrs if s < 100]),
+            rate=counter.tasr() if args.target is not None else counter.asr(),
+        )
     # # =====================================================
 
 
-def parse_args():
+def parse_args(name, eps,attack):
+    attack_to_atk = {"FGSM":"FastGradientMethod","PGD":"ProjectedGradientDescent", "CWLinf":"CarliniLInfMethod", "CWL2":"CarliniL2Method"}
+    atk = attack_to_atk[attack]
+    output_name = f"cleandata_eps{eps}_atk{attack}"
     parser = ArgumentParser("Speaker Classification model on LibriSpeech dataset", \
-                            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # parser.add_argument("-m", "--model_ckpt", required=True,default="model/eps0.5" , help="Checkpoint of the pretrained model.")
-    parser.add_argument("-m", "--model_ckpt", default="model/eps0.5_v2", help="Checkpoint of the pretrained model.")
+    parser.add_argument("-m", "--model_ckpt",default=f"model/{name}.tmp" , help="Checkpoint of the pretrained model.")
     # parser.add_argument("-o", "--output_dir", type=Path, default=None, required=True, help="Outputs/results will be saved here")
-    parser.add_argument("-o", "--output_dir", type=Path, default=None, help="Outputs/results will be saved here")
-    parser.add_argument("-a", "--attack", default="FastGradientMethod",
-                        help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
-    parser.add_argument("-e", "--epsilon", type=float, default=0.0005, help="Perturbation value")
-    parser.add_argument("-mi", "--attack_max_iter", type=int, default=10,
-                        help="Max iterations for iterative attacks like PGD")
-    parser.add_argument("-s", "--snr", type=float, default=None,
-                        help="Signal-to-noise ratio (in decibel). You can provide this instead of epsilon.")
+    parser.add_argument("-o", "--output_dir", type=Path, default=f"C:\Adverserial\{name}_{output_name}", help="Outputs/results will be saved here")
+    parser.add_argument("-a", "--attack", default=atk, help="FastGradientMethod, ProjectedGradientDescent, CarliniLInfMethod, CarliniL2Method")
+    parser.add_argument("-e", "--epsilon", type=float, default=eps, help="Perturbation value")
+    parser.add_argument("-mi", "--attack_max_iter", type=int, default=3, help="Max iterations for iterative attacks like PGD")
+    parser.add_argument("-s", "--snr", type=float, default=None, help="Signal-to-noise ratio (in decibel). You can provide this instead of epsilon.")
     parser.add_argument(
         "-t", "--target", type=int, default=None,
         help="Attack target. Set it to `None` for untargeted attacks. Note: Targeted attacks have not been tested in our experiments.")
     parser.add_argument(
-        "-r", "--report", default=None,
+        "-r", "--report", default=f"C:\Adverserial\{name}_{output_name}\\report.txt",
         help="A text file for documenting the final results.")
     parser.add_argument(
-        "-w", "--save_wav", type=int, default=0, help="Save adversarial wav files to ouput_dir? (0/1)")
+        "-w", "--save_wav", type=int, default=1, help="Save adversarial wav files to ouput_dir? (0/1)")
     parser.add_argument(
         "-wid", "--save_iter_id", type=int, help='Only save at this iter id', default=None)
     parser.add_argument(
@@ -415,53 +405,10 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    # exps_list = os.listdir("vocoded_clean_cnn_tal_attacks_flac")
-    # bad_exps = ["clean_4000_96.7_eps0.005_FGSM", "clean_4000_96.7_eps0.005_atkCWLinf",
-    #             "clean_4000_96.7_eps0.0005_atkCWLinf"]
-    # print(exps_list)
-    # for exp in exps_list:
-    #     if exp in bad_exps:
-    #         continue
-    #     args = parse_args()
-    #     args.model_type = "cnn"
-    #     args.model_ckpt = "model/voc_cnn_eps_0/CNN_Vocoded_clean_4000_94.8.tmp"
-    #     args.output_dir = Path(f"attacks/voc_cnn_eps_0_clean_atk_vocoded/{exp}/FGSM_eps_0.0005")
-    #     args.attack = "FastGradientMethod"
-    #     args.epsilon = 0.0005
-    #     args.report = f"attacks/voc_cnn_eps_0_clean_atk_vocoded/{exp}/FGSM_eps_0.0005/report.md"
-    #     args.save_wav = 0
-    #     args.log = f"attacks/voc_cnn_eps_0_clean_atk_vocoded/{exp}/FGSM_eps_0.0005/results_test.txt"
-    #     args.data_root = f"vocoded_clean_cnn_tal_attacks_flac/{exp}/"
-    #     if os.path.exists(args.report):
-    #         print("Attack for ", exp, " already done")
-    #         continue
-    #     if args.output_dir is not None:
-    #         args.output_dir.mkdir(parents=True, exist_ok=True)
-    #
-    #     with open(args.log, 'w') as f:
-    #         f.write("")
-    #
-    #     print("Starting attack for ", exp)
-    #     main(args)
-    #     print("Attack for ", exp, " done")
-    exp = "0.0005_FGSM"
-    args = parse_args()
-    args.model_type = "cnn"
-    args.model_ckpt = "model/clean_cnn_eps_0/clean_4000_96.7.tmp"
-    args.output_dir = Path(f"attacks/clean_cnn_eps_0_reg_vocoded/{exp}/FGSM_eps_0.0005")
-    args.attack = "FastGradientMethod"
-    args.epsilon = 0.0005
-    args.report = f"attacks/clean_cnn_eps_0_reg_vocoded/{exp}/FGSM_eps_0.0005/report.md"
-    args.save_wav = 0
-    args.log = f"attacks/clean_cnn_eps_0_reg_vocoded/{exp}/FGSM_eps_0.0005/results_test.txt"
-    args.data_root = f"vocoded_clean_cnn_tal_attacks_flac/clean_4000_96.7_eps0.0005_FGSM"
-
-    if args.output_dir is not None:
-        args.output_dir.mkdir(parents=True, exist_ok=True)
-
-    with open(args.log, 'w') as f:
-        f.write("")
-
-    print("Starting attack for ", exp)
-    main(args)
-    print("Attack for ", exp, " done")
+    names = ["CNN_Vocoded_clean_4000_94.8"]
+    attacks = ["FGSM","PGD", "CWLinf"]
+    epsilons = [0.0005,0.005]
+    for name in names:
+        for eps in epsilons:
+            for attack in attacks:
+                main(parse_args(name,eps, attack))
